@@ -2,27 +2,28 @@ name: Daily Metrics
 
 on:
   schedule:
-    - cron: "0 14 * * *"   # 8am CST = 14:00 UTC
-  workflow_dispatch:       # allows manual running
+    - cron: "0 12 * * *"   # 6 AM CST
+  workflow_dispatch:
 
 jobs:
   run-metrics:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Check out repo
         uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: 3.11
 
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
 
-      - name: Run metrics script
+      - name: Run daily metrics
         env:
           RENDER_DB_URL: ${{ secrets.RENDER_DB_URL }}
-        run: python run_daily_metrics.py
+        run: |
+          python run_daily_metrics.py
