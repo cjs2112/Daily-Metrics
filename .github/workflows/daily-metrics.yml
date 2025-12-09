@@ -1,30 +1,28 @@
-name: Daily Metrics Pipeline
+name: Daily Metrics
 
 on:
   schedule:
-    - cron: "0 8 * * *"   # runs at 08:00 UTC daily
-  workflow_dispatch:
+    - cron: "0 14 * * *"   # 8am CST = 14:00 UTC
+  workflow_dispatch:       # allows manual running
 
 jobs:
-  run:
+  run-metrics:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install sqlalchemy pandas psycopg2-binary
+        run: |
+          pip install -r requirements.txt
 
-      - name: Run pipeline
+      - name: Run metrics script
         env:
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASS: ${{ secrets.DB_PASS }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_NAME: ${{ secrets.DB_NAME }}
+          RENDER_DB_URL: ${{ secrets.RENDER_DB_URL }}
         run: python run_daily_metrics.py
