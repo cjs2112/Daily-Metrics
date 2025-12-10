@@ -28,6 +28,6 @@ jobs:
       - name: Run daily metrics
         working-directory: ${{ github.workspace }}
         env:
-          RENDER_DB_URL: ${{ secrets.RENDER_DB_URL }}
+          RENDER_DB_URL: ${{ secrets.DATABASE_URL }}
         run: |
           python run_daily_metrics.py
