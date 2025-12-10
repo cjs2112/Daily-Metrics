@@ -4,9 +4,9 @@ import pandas as pd
 from sqlalchemy import create_engine
 
 def get_db_url():
-    db_url = os.environ.get("RENDER_DB_URL")
+    db_url = os.environ.get("DATABASE_URL")   # <-- updated
     if not db_url:
-        print("ERROR: Environment variable RENDER_DB_URL is not set.")
+        print("ERROR: Environment variable DATABASE_URL is not set.")
         sys.exit(1)
     return db_url
 
