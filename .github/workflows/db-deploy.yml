@@ -1,0 +1,33 @@
+name: Deploy SQL to Postgres
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install PostgreSQL client
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+
+    - name: Run SQL against EC2 Postgres
+      env:
+        DB_HOST: ${{ secrets.DB_HOST }}
+        DB_PORT: ${{ secrets.DB_PORT }}
+        DB_NAME: ${{ secrets.DB_NAME }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      run: |
+        PGPASSWORD="$DB_PASSWORD" psql \
+          -h "$DB_HOST" \
+          -p "$DB_PORT" \
+          -U "$DB_USER" \
+          -d "$DB_NAME" \
+          -f sql/schema.sql   # << your SQL file
