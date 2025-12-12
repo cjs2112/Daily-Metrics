@@ -1,9 +1,16 @@
-name: Daily Metrics
+name: RevOps Daily Metrics
 
 on:
   schedule:
-    - cron: "0 12 * * *"   # 6 AM CST
+    # Runs daily at 12:00 UTC (6 AM CST)
+    - cron: "0 12 * * *"
+
   workflow_dispatch:
+    inputs:
+      backfill_days:
+        description: "Number of days to backfill (optional)"
+        required: false
+        default: ""
 
 jobs:
   run-metrics:
@@ -11,13 +18,10 @@ jobs:
 
     steps:
       - name: Check out repo
-        uses: actions/checkout@v3
-
-      - name: Debug workspace
-        run: ls -R .
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.11
 
@@ -25,9 +29,18 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Run daily metrics
-        working-directory: ${{ github.workspace }}
+      - name: Run RevOps metrics
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PG_HOST: ${{ secrets.PG_HOST }}
+          PG_PORT: ${{ secrets.PG_PORT }}
+          PG_DATABASE: ${{ secrets.PG_DATABASE }}
+          PG_USER: ${{ secrets.PG_USER }}
+          PG_PASSWORD: ${{ secrets.PG_PASSWORD }}
         run: |
-          python run_daily_metrics.py
+          if [ -z "${{ github.event.inputs.backfill_days }}" ]; then
+            echo "Running daily metrics for yesterday"
+            python run_daily_metrics.py
+          else
+            echo "Backfilling last ${{ github.event.inputs.backfill_days }} days"
+            python run_daily_metrics.py ${{ github.event.inputs.backfill_days }}
+          fi
