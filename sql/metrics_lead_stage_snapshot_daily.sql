@@ -1,15 +1,11 @@
--- ============================================================
--- Phase 6A — Lead Stage Snapshot (Derived Funnel Health)
--- ============================================================
+-- Phase 6A — Lead Stage Snapshot Daily (psql variable driven)
 
 with params as (
-  select current_setting('run_date')::date as run_date
+  select (:'run_date')::date as run_date
 ),
 
 first_touch as (
-  select
-    lead_id,
-    min(occurred_at) as first_touch_at
+  select lead_id, min(occurred_at) as first_touch_at
   from crm_remote.activities
   group by 1
 )
@@ -34,8 +30,7 @@ from (
       else 'Converted to Opportunity'
     end as stage
   from crm_remote.leads l
-  left join first_touch ft
-    on ft.lead_id = l.lead_id
+  left join first_touch ft on ft.lead_id = l.lead_id
   left join crm_remote.opportunities o
     on o.rep_id = l.rep_id
    and o.created_at > l.created_at
