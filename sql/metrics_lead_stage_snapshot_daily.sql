@@ -26,7 +26,7 @@ from (
     l.lead_id,
     case
       when ft.first_touch_at is null then 'Unengaged'
-      when o.opportunity_id is null then 'Engaged'
+      when o.opp_id is null then 'Engaged'
       else 'Converted to Opportunity'
     end as stage
   from crm_remote.leads l
