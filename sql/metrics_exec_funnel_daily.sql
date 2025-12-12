@@ -1,19 +1,9 @@
--- DEBUG: prove execution
-insert into metrics.system_log (level, message)
-values ('INFO', 'metrics_exec_funnel_daily.sql executed');
-
--- ============================================================
--- Phase 6A — Executive Funnel Daily Metrics
--- Date-driven, event-derived, idempotent
--- ============================================================
+-- Phase 6A — Executive Funnel Daily Metrics (psql variable driven)
 
 with params as (
-  select current_setting('run_date')::date as run_date
+  select (:'run_date')::date as run_date
 ),
 
--- -------------------------
--- Source tables
--- -------------------------
 leads as (
   select lead_id, rep_id, created_at
   from crm_remote.leads
@@ -36,22 +26,15 @@ opps as (
   from crm_remote.opportunities
 ),
 
--- -------------------------
--- First touch per lead
--- -------------------------
 first_touch as (
   select
     l.lead_id,
     min(a.occurred_at) as first_touch_at
   from leads l
-  left join activities a
-    on a.lead_id = l.lead_id
+  left join activities a on a.lead_id = l.lead_id
   group by 1
 )
 
--- ============================================================
--- Insert / Upsert
--- ============================================================
 insert into metrics.exec_funnel_daily (
   metric_date,
   leads_created,
@@ -69,12 +52,10 @@ insert into metrics.exec_funnel_daily (
 select
   p.run_date,
 
-  -- Funnel volume
   (select count(*) from leads l where l.created_at::date = p.run_date),
   (select count(*) from first_touch ft where ft.first_touch_at::date = p.run_date),
   (select count(*) from opps o where o.created_at::date = p.run_date),
 
-  -- Outcomes
   (select count(*) from opps o
    where o.is_closed and o.is_won
      and o.closed_at::date = p.run_date),
@@ -92,7 +73,6 @@ select
    where o.is_closed and o.is_won
      and o.closed_at::date = p.run_date),
 
-  -- Conversion
   case
     when (select count(*) from leads l where l.created_at::date = p.run_date) > 0
     then
@@ -101,7 +81,6 @@ select
       (select count(*) from leads l where l.created_at::date = p.run_date)
   end,
 
-  -- Velocity
   (select avg(extract(epoch from (ft.first_touch_at - l.created_at)) / 86400.0)
    from leads l
    join first_touch ft on ft.lead_id = l.lead_id
@@ -110,13 +89,10 @@ select
 
   (select avg(extract(epoch from (o.created_at - l.created_at)) / 86400.0)
    from leads l
-   join opps o
-     on o.rep_id = l.rep_id
-    and o.created_at > l.created_at
+   join opps o on o.rep_id = l.rep_id and o.created_at > l.created_at
    where l.created_at::date = p.run_date),
 
   now()
-
 from params p
 on conflict (metric_date) do update set
   leads_created = excluded.leads_created,
@@ -130,4 +106,3 @@ on conflict (metric_date) do update set
   avg_days_to_first_touch = excluded.avg_days_to_first_touch,
   avg_days_lead_to_opp = excluded.avg_days_lead_to_opp,
   updated_at = now();
-
