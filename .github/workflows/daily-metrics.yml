@@ -38,7 +38,7 @@ jobs:
                -p ${{ secrets.PG_PORT }} \
                -U ${{ secrets.PG_USER }} \
                -d ${{ secrets.PG_DATABASE }} \
-               -v run_date="'$RUN_DATE'" \
+               -c "set run_date = '$RUN_DATE';"
                -f sql/metrics_exec_funnel_daily.sql
 
           # Funnel health snapshot
@@ -46,7 +46,7 @@ jobs:
                -p ${{ secrets.PG_PORT }} \
                -U ${{ secrets.PG_USER }} \
                -d ${{ secrets.PG_DATABASE }} \
-               -v run_date="'$RUN_DATE'" \
+               -c "set run_date = '$RUN_DATE';"
                -f sql/metrics_lead_stage_snapshot_daily.sql
 
           # Rep efficiency metrics
@@ -54,5 +54,5 @@ jobs:
                -p ${{ secrets.PG_PORT }} \
                -U ${{ secrets.PG_USER }} \
                -d ${{ secrets.PG_DATABASE }} \
-               -v run_date="'$RUN_DATE'" \
+               -c "set run_date = '$RUN_DATE';"
                -f sql/metrics_rep_efficiency_daily.sql
