@@ -36,7 +36,7 @@ cross join params p
 left join (
   select rep_id, count(*) as touches
   from crm_remote.activities
-  where occurred_at::date = (:'run_date')::date
+  where activity_ts::date = (:'run_date')::date
   group by 1
 ) t on t.rep_id = r.rep_id
 
