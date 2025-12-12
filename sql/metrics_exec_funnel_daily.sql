@@ -76,18 +76,31 @@ y_lost as (
 velocity as (
   select
     p.run_date,
-    avg(extract(epoch from (ft.first_touch_at - l.created_at)) / 86400.0)
-      filter (where ft.first_touch_at is not null)
-      as avg_days_to_first_touch,
-    avg(extract(epoch from (o.created_at - l.created_at)) / 86400.0)
-      as avg_days_lead_to_opp
+
+    avg(
+      extract(epoch from (ft.first_touch_at - l.created_at)) / 86400.0
+    ) filter (
+      where ft.first_touch_at is not null
+    ) as avg_days_to_first_touch,
+
+    avg(
+      extract(epoch from (o.created_at - l.created_at)) / 86400.0
+    ) filter (
+      where o.created_at is not null
+    ) as avg_days_lead_to_opp
+
   from params p
-  join leads l on l.created_at::date = p.run_date
-  left join first_touch ft on ft.lead_id = l.lead_id
+  left join leads l
+    on l.created_at::date = p.run_date
+  left join first_touch ft
+    on ft.lead_id = l.lead_id
   left join opps o
     on o.rep_id = l.rep_id
    and o.created_at > l.created_at
+
+  group by p.run_date
 )
+
 
 insert into metrics.exec_funnel_daily (
   metric_date,
