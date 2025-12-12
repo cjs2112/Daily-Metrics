@@ -1,4 +1,18 @@
--- Phase 6A: Lead Stage Snapshot (Derived Funnel Health)
+-- ============================================================
+-- Phase 6A — Lead Stage Snapshot (Derived Funnel Health)
+-- ============================================================
+
+with params as (
+  select current_setting('run_date')::date as run_date
+),
+
+first_touch as (
+  select
+    lead_id,
+    min(occurred_at) as first_touch_at
+  from crm_remote.activities
+  group by 1
+)
 
 insert into metrics.lead_stage_snapshot_daily (
   metric_date,
@@ -7,7 +21,7 @@ insert into metrics.lead_stage_snapshot_daily (
   updated_at
 )
 select
-  :run_date::date as metric_date,
+  p.run_date,
   stage,
   count(*) as leads_in_stage,
   now()
@@ -20,16 +34,14 @@ from (
       else 'Converted to Opportunity'
     end as stage
   from crm_remote.leads l
-  left join (
-    select lead_id, min(occurred_at) as first_touch_at
-    from crm_remote.activities
-    group by 1
-  ) ft on ft.lead_id = l.lead_id
+  left join first_touch ft
+    on ft.lead_id = l.lead_id
   left join crm_remote.opportunities o
     on o.rep_id = l.rep_id
    and o.created_at > l.created_at
 ) s
-group by 1,2
+cross join params p
+group by p.run_date, stage
 on conflict (metric_date, lead_stage) do update set
   leads_in_stage = excluded.leads_in_stage,
   updated_at = now();
