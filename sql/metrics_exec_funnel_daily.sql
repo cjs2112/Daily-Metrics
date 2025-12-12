@@ -9,7 +9,7 @@ values ('INFO', 'metrics_exec_funnel_daily.sql executed');
 -- ============================================================
 
 with params as (
-  select :run_date::date as run_date
+  select current_setting('run_date')::date
 ),
 
 -- ------------------------------------------------------------
