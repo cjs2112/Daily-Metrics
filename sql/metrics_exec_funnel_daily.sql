@@ -10,7 +10,9 @@ leads as (
 ),
 
 activities as (
-  select lead_id, occurred_at
+  select
+    lead_id,
+    activity_ts
   from crm_remote.activities
 ),
 
@@ -29,7 +31,7 @@ opps as (
 first_touch as (
   select
     l.lead_id,
-    min(a.occurred_at) as first_touch_at
+    min(a.activity_ts) as first_touch_at
   from leads l
   left join activities a on a.lead_id = l.lead_id
   group by 1
