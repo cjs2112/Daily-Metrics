@@ -1,4 +1,3 @@
--- DEBUG PROOF: this must appear in system_log if file runs
 insert into metrics.system_log (level, message)
 values ('INFO', 'metrics_exec_funnel_daily.sql executed');
 
