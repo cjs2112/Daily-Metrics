@@ -1,3 +1,7 @@
+-- DEBUG: prove execution
+insert into metrics.system_log (level, message)
+values ('INFO', 'metrics_exec_funnel_daily.sql executed');
+
 -- ============================================================
 -- Phase 6A — Executive Funnel Daily Metrics
 -- Event-derived, date-driven, idempotent
