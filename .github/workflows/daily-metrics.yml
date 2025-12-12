@@ -29,18 +29,29 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Run RevOps metrics
-        env:
-          PG_HOST: ${{ secrets.PG_HOST }}
-          PG_PORT: ${{ secrets.PG_PORT }}
-          PG_DATABASE: ${{ secrets.PG_DATABASE }}
-          PG_USER: ${{ secrets.PG_USER }}
-          PG_PASSWORD: ${{ secrets.PG_PASSWORD }}
-        run: |
-          if [ -z "${{ github.event.inputs.backfill_days }}" ]; then
-            echo "Running daily metrics for yesterday"
-            python run_daily_metrics.py
-          else
-            echo "Backfilling last ${{ github.event.inputs.backfill_days }} days"
-            python run_daily_metrics.py ${{ github.event.inputs.backfill_days }}
-          fi
+      - name: Run Phase 6 Executive Metrics
+  env:
+    PGPASSWORD: ${{ secrets.PG_PASSWORD }}
+  run: |
+    RUN_DATE=$(date -d yesterday +%F)
+
+    psql -h ${{ secrets.PG_HOST }} \
+         -p ${{ secrets.PG_PORT }} \
+         -U ${{ secrets.PG_USER }} \
+         -d ${{ secrets.PG_DATABASE }} \
+         -v run_date="'$RUN_DATE'" \
+         -f sql/metrics_exec_funnel_daily.sql
+
+    psql -h ${{ secrets.PG_HOST }} \
+         -p ${{ secrets.PG_PORT }} \
+         -U ${{ secrets.PG_USER }} \
+         -d ${{ secrets.PG_DATABASE }} \
+         -v run_date="'$RUN_DATE'" \
+         -f sql/metrics_lead_stage_snapshot_daily.sql
+
+    psql -h ${{ secrets.PG_HOST }} \
+         -p ${{ secrets.PG_PORT }} \
+         -U ${{ secrets.PG_USER }} \
+         -d ${{ secrets.PG_DATABASE }} \
+         -v run_date="'$RUN_DATE'" \
+         -f sql/metrics_rep_efficiency_daily.sql
