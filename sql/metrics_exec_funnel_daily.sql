@@ -18,7 +18,7 @@ activities as (
 
 opps as (
   select
-    opportunity_id,
+    opp_id,
     rep_id,
     amount,
     created_at,
