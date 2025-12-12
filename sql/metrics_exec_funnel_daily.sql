@@ -1,11 +1,22 @@
--- Phase 6A — Executive Funnel Daily Metrics (psql variable driven)
+-- ============================================================
+-- Phase 6A — Executive Funnel Daily Metrics (Schema-Validated)
+-- Inputs:
+--   psql -v run_date="YYYY-MM-DD"
+-- Notes:
+--   - Opportunities have NO rep_id / created_at / is_won / is_closed
+--   - status is blank -> outcomes derived from stage_name
+--   - "opps_created" uses close_date as event proxy (since no created_at)
+-- ============================================================
 
 with params as (
   select (:'run_date')::date as run_date
 ),
 
 leads as (
-  select lead_id, rep_id, created_at
+  select
+    lead_id,
+    rep_id,
+    created_at
   from crm_remote.leads
 ),
 
@@ -19,12 +30,11 @@ activities as (
 opps as (
   select
     opp_id,
-    rep_id,
+    lead_id,
     amount,
-    created_at,
-    is_closed,
-    is_won,
-    closed_at
+    close_date,
+    stage,
+    stage_name
   from crm_remote.opportunities
 ),
 
@@ -33,7 +43,8 @@ first_touch as (
     l.lead_id,
     min(a.activity_ts) as first_touch_at
   from leads l
-  left join activities a on a.lead_id = l.lead_id
+  left join activities a
+    on a.lead_id = l.lead_id
   group by 1
 )
 
@@ -54,47 +65,78 @@ insert into metrics.exec_funnel_daily (
 select
   p.run_date,
 
-  (select count(*) from leads l where l.created_at::date = p.run_date),
-  (select count(*) from first_touch ft where ft.first_touch_at::date = p.run_date),
-  (select count(*) from opps o where o.created_at::date = p.run_date),
+  -- Leads created (true creation event)
+  (select count(*)
+   from leads l
+   where l.created_at::date = p.run_date
+  ) as leads_created,
 
-  (select count(*) from opps o
-   where o.is_closed and o.is_won
-     and o.closed_at::date = p.run_date),
+  -- Leads engaged (first activity date = run_date)
+  (select count(*)
+   from first_touch ft
+   where ft.first_touch_at::date = p.run_date
+  ) as leads_engaged,
 
-  (select count(*) from opps o
-   where o.is_closed and not o.is_won
-     and o.closed_at::date = p.run_date),
+  -- "Opps created" proxy: opportunities with close_date on run_date
+  (select count(*)
+   from opps o
+   where o.close_date::date = p.run_date
+  ) as opps_created,
 
+  -- Outcomes derived from stage_name (status is blank)
+  (select count(*)
+   from opps o
+   where o.close_date::date = p.run_date
+     and o.stage_name ilike '%won%'
+  ) as opps_won,
+
+  (select count(*)
+   from opps o
+   where o.close_date::date = p.run_date
+     and o.stage_name ilike '%lost%'
+  ) as opps_lost,
+
+  -- Pipeline created proxy: sum(amount) on close_date
   (select coalesce(sum(o.amount), 0)
    from opps o
-   where o.created_at::date = p.run_date),
+   where o.close_date::date = p.run_date
+  ) as pipeline_created,
 
+  -- Revenue won proxy: sum(amount) where stage_name indicates won
   (select coalesce(sum(o.amount), 0)
    from opps o
-   where o.is_closed and o.is_won
-     and o.closed_at::date = p.run_date),
+   where o.close_date::date = p.run_date
+     and o.stage_name ilike '%won%'
+  ) as revenue_won,
 
+  -- Conversion (lead->opp): opps on run_date / leads created on run_date
   case
     when (select count(*) from leads l where l.created_at::date = p.run_date) > 0
     then
-      (select count(*) from opps o where o.created_at::date = p.run_date)::numeric
+      (select count(*) from opps o where o.close_date::date = p.run_date)::numeric
       /
       (select count(*) from leads l where l.created_at::date = p.run_date)
-  end,
+  end as lead_to_opp_conv_pct,
 
+  -- Avg days to first touch for leads created on run_date
   (select avg(extract(epoch from (ft.first_touch_at - l.created_at)) / 86400.0)
    from leads l
    join first_touch ft on ft.lead_id = l.lead_id
    where l.created_at::date = p.run_date
-     and ft.first_touch_at is not null),
+     and ft.first_touch_at is not null
+  ) as avg_days_to_first_touch,
 
-  (select avg(extract(epoch from (o.created_at - l.created_at)) / 86400.0)
-   from leads l
-   join opps o on o.rep_id = l.rep_id and o.created_at > l.created_at
-   where l.created_at::date = p.run_date),
+  -- Avg days lead -> "opp event" proxy (close_date) for opps on run_date
+  (select avg(extract(epoch from (o.close_date - l.created_at)) / 86400.0)
+   from opps o
+   join leads l on l.lead_id = o.lead_id
+   where o.close_date::date = p.run_date
+     and l.created_at is not null
+     and o.close_date is not null
+  ) as avg_days_lead_to_opp,
 
-  now()
+  now() as updated_at
+
 from params p
 on conflict (metric_date) do update set
   leads_created = excluded.leads_created,
