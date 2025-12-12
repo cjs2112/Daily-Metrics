@@ -7,8 +7,8 @@ on:
 
   workflow_dispatch:
     inputs:
-      backfill_days:
-        description: "Number of days to backfill (optional)"
+      run_date:
+        description: "Optional run date (YYYY-MM-DD). Defaults to yesterday."
         required: false
         default: ""
 
@@ -20,38 +20,39 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.11
-
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-
       - name: Run Phase 6 Executive Metrics
-  env:
-    PGPASSWORD: ${{ secrets.PG_PASSWORD }}
-  run: |
-    RUN_DATE=$(date -d yesterday +%F)
+        env:
+          PGPASSWORD: ${{ secrets.PG_PASSWORD }}
+        run: |
+          # Determine run date
+          if [ -z "${{ github.event.inputs.run_date }}" ]; then
+            RUN_DATE=$(date -d yesterday +%F)
+            echo "Running metrics for yesterday: $RUN_DATE"
+          else
+            RUN_DATE="${{ github.event.inputs.run_date }}"
+            echo "Running metrics for specified date: $RUN_DATE"
+          fi
 
-    psql -h ${{ secrets.PG_HOST }} \
-         -p ${{ secrets.PG_PORT }} \
-         -U ${{ secrets.PG_USER }} \
-         -d ${{ secrets.PG_DATABASE }} \
-         -v run_date="'$RUN_DATE'" \
-         -f sql/metrics_exec_funnel_daily.sql
+          # Executive funnel metrics
+          psql -h ${{ secrets.PG_HOST }} \
+               -p ${{ secrets.PG_PORT }} \
+               -U ${{ secrets.PG_USER }} \
+               -d ${{ secrets.PG_DATABASE }} \
+               -v run_date="'$RUN_DATE'" \
+               -f sql/metrics_exec_funnel_daily.sql
 
-    psql -h ${{ secrets.PG_HOST }} \
-         -p ${{ secrets.PG_PORT }} \
-         -U ${{ secrets.PG_USER }} \
-         -d ${{ secrets.PG_DATABASE }} \
-         -v run_date="'$RUN_DATE'" \
-         -f sql/metrics_lead_stage_snapshot_daily.sql
+          # Funnel health snapshot
+          psql -h ${{ secrets.PG_HOST }} \
+               -p ${{ secrets.PG_PORT }} \
+               -U ${{ secrets.PG_USER }} \
+               -d ${{ secrets.PG_DATABASE }} \
+               -v run_date="'$RUN_DATE'" \
+               -f sql/metrics_lead_stage_snapshot_daily.sql
 
-    psql -h ${{ secrets.PG_HOST }} \
-         -p ${{ secrets.PG_PORT }} \
-         -U ${{ secrets.PG_USER }} \
-         -d ${{ secrets.PG_DATABASE }} \
-         -v run_date="'$RUN_DATE'" \
-         -f sql/metrics_rep_efficiency_daily.sql
+          # Rep efficiency metrics
+          psql -h ${{ secrets.PG_HOST }} \
+               -p ${{ secrets.PG_PORT }} \
+               -U ${{ secrets.PG_USER }} \
+               -d ${{ secrets.PG_DATABASE }} \
+               -v run_date="'$RUN_DATE'" \
+               -f sql/metrics_rep_efficiency_daily.sql
