@@ -1,3 +1,14 @@
+"""
+DEPRECATED
+
+This file was used in an earlier iteration where metrics were computed in Python.
+Metrics are now computed in PostgreSQL via SQL-first aggregation functions.
+
+See run_daily_metrics.py for the active entry point.
+"""
+
+
+
 import os
 import sys
 import pandas as pd
